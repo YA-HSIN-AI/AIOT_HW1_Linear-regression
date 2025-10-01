@@ -7,7 +7,7 @@ Establish success criteria (e.g., predicting stock price trends, providing clear
 Align with the course or project learning goals.
 
 2. Data Understanding
-Collect, describe, and explore the data.(AMZN)
+Collect, describe, and explore the data.
 Detect quality issues, missing values, and anomalies.
 Understand the data format, types, and distributions.
 
