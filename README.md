@@ -1,5 +1,5 @@
 # AIOT_HW1_Linear-regression
-write python to solve simple linear regression problem, following CRISP-DM steps
+write python to solve linear regression problem, following CRISP-DM steps
 
 1. Business Understanding
 Define project objectives and requirements.
