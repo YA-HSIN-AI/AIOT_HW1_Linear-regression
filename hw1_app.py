@@ -1,92 +1,109 @@
-# Step 1: Import necessary libraries
+# HW1: Simple Linear Regression with CRISP-DM
 import numpy as np
 import pandas as pd
 import streamlit as st
-import yfinance as yf
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
-from datetime import date, timedelta
 
-# Step 2: Title and description
-st.title("Interactive Linear Regression App — Amazon (AMZN) Price")
+# ---------------- Title ----------------
+st.title("HW1: Simple Linear Regression App (y = ax + b + noise)")
+
 st.write("""
-This app downloads **Amazon (AMZN)** historical prices from Yahoo Finance,
-then fits a simple **linear regression of Price vs. Time Index**.
-Adjust the date range and resampling frequency to see how it affects the fit.
+This app demonstrates **Linear Regression** with synthetic data,  
+following the **CRISP-DM process**.
 """)
 
 # ---------------- Sidebar controls ----------------
-st.sidebar.subheader("Data Settings")
-ticker = st.sidebar.text_input("Ticker", value="AMZN")
-default_end = date.today()
-default_start = default_end - timedelta(days=365)  # past 1 year
-start_date = st.sidebar.date_input("Start date", value=default_start, max_value=default_end - timedelta(days=1))
-end_date = st.sidebar.date_input("End date", value=default_end, min_value=start_date + timedelta(days=1))
-freq = st.sidebar.selectbox("Resample frequency", options=["D (daily)", "W (weekly)", "M (monthly)"], index=0)
+st.sidebar.header("Data Generation Parameters")
 
-# Map display freq to pandas rule
-freq_rule = {"D (daily)": "D", "W (weekly)": "W", "M (monthly)": "M"}[freq]
+a = st.sidebar.slider("Slope (a)", min_value=-10.0, max_value=10.0, value=2.0, step=0.1)
+b = st.sidebar.slider("Intercept (b)", min_value=-10.0, max_value=10.0, value=5.0, step=0.1)
+noise = st.sidebar.slider("Noise Std Dev", min_value=0.0, max_value=10.0, value=2.0, step=0.1)
+n = st.sidebar.slider("Number of points (n)", min_value=20, max_value=500, value=100, step=10)
 
-st.sidebar.subheader("Model Parameters")
-# 只保留 n（可下采樣後再截取前 n 筆），其餘 a/c 不再用，因為改為真實數據
-n = st.sidebar.slider('Max number of points to use (after resample)', min_value=20, max_value=2000, value=300, step=10)
+# ---------------- CRISP-DM Explanation ----------------
+st.header("CRISP-DM Process")
 
-# ---------------- Fetch data ----------------
-@st.cache_data(show_spinner=True)
-def load_prices(ticker: str, start: date, end: date) -> pd.DataFrame:
-    df = yf.download(ticker, start=start, end=end, auto_adjust=True, progress=False)
-    return df
+with st.expander("1. Business Understanding"):
+    st.write("""
+    Goal: Simulate a simple dataset (y = ax + b + noise) and fit a linear regression model.  
+    Success: The app should allow user to adjust parameters (a, b, noise, n)  
+    and visualize how regression performs.
+    """)
 
-df_raw = load_prices(ticker, start_date, end_date)
+with st.expander("2. Data Understanding"):
+    st.write("""
+    The generated data is synthetic: X ranges from 0 to 10,  
+    y is computed as y = ax + b + noise.  
+    Noise follows a Gaussian distribution.
+    """)
 
-if df_raw.empty:
-    st.error("No data returned. Try another date range or ticker.")
-    st.stop()
+with st.expander("3. Data Preparation"):
+    st.write("""
+    - Generate evenly spaced X values.  
+    - Add Gaussian noise to y.  
+    - Reshape arrays into suitable format for sklearn.
+    """)
 
-# Use Close price and resample
-df = df_raw[['Close']].resample(freq_rule).last().dropna().copy()
-df = df.head(n)  # limit to n points for speed/clarity
+with st.expander("4. Modeling"):
+    st.write("""
+    - Model: Linear Regression (sklearn).  
+    - Fit model on (X, y).  
+    - Predict y_hat.
+    """)
 
-# Prepare X (time index as 0..n-1) and y (Close)
-df = df.reset_index().rename(columns={'index': 'Date'})
-df['t_index'] = np.arange(len(df))
-X = df[['t_index']].values
-y = df['Close'].values.reshape(-1, 1)
+with st.expander("5. Evaluation"):
+    st.write("""
+    Evaluate performance using:  
+    - Mean Squared Error (MSE)  
+    - R-squared (R²)  
+    """)
 
-# ---------------- Fit linear regression ----------------
+with st.expander("6. Deployment"):
+    st.write("""
+    This app is deployed via **Streamlit**,  
+    enabling interactive parameter adjustment and real-time visualization.
+    """)
+
+# ---------------- Data Generation ----------------
+X = np.linspace(0, 10, n).reshape(-1, 1)
+y_true = a * X + b
+y = y_true + np.random.normal(0, noise, size=(n, 1))
+
+# ---------------- Modeling ----------------
 model = LinearRegression()
 model.fit(X, y)
 y_pred = model.predict(X)
 
 # ---------------- Metrics ----------------
 mse = mean_squared_error(y, y_pred)
-r_squared = model.score(X, y)
+r2 = r2_score(y, y_pred)
 
-# ---------------- Display metrics ----------------
 st.subheader("Model Performance Metrics")
-st.write(f"Ticker: **{ticker}**")
-st.write(f"Range: **{start_date} → {end_date}**, resample: **{freq_rule}**, used points: **{len(df)}**")
+st.write(f"True equation: y = {a}x + {b} + noise(std={noise})")
+st.write(f"Fitted model: y = {model.coef_[0][0]:.2f}x + {model.intercept_[0]:.2f}")
 st.write(f"Mean Squared Error (MSE): **{mse:.2f}**")
-st.write(f"R-squared: **{r_squared:.4f}**")
+st.write(f"R-squared (R²): **{r2:.4f}**")
 
 # ---------------- Visualization ----------------
-st.subheader("Data Visualization")
-fig, ax = plt.subplots(figsize=(8, 4))
-ax.plot(df['t_index'], df['Close'], label='Actual Close')
-ax.plot(df['t_index'], y_pred.flatten(), label='Linear Fit')
-ax.set_xlabel("Time Index (after resample)")
-ax.set_ylabel("Price")
-ax.set_title(f"{ticker} Close vs Linear Fit")
+st.subheader("Visualization")
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(X, y, label="Data (with noise)", alpha=0.6)
+ax.plot(X, y_true, label="True function (no noise)", color="green", linestyle="--")
+ax.plot(X, y_pred, label="Fitted regression line", color="red")
+ax.set_xlabel("X")
+ax.set_ylabel("y")
 ax.legend()
-fig.tight_layout()
 st.pyplot(fig)
 
-# Optional: table preview & download
-st.write("Preview of dataset:")
-st.dataframe(df[['Date', 'Close']].head())
+# ---------------- Dataset Preview ----------------
+st.subheader("Data Preview")
+df = pd.DataFrame({"X": X.flatten(), "y": y.flatten()})
+st.dataframe(df.head())
 
-csv = df[['Date', 'Close']].to_csv(index=False).encode("utf-8")
-st.download_button("Download CSV (Date, Close)", csv, file_name=f"{ticker}_prices.csv", mime="text/csv")
+csv = df.to_csv(index=False).encode("utf-8")
+st.download_button("Download CSV", csv, file_name="synthetic_regression_data.csv", mime="text/csv")
 
-st.caption("Note: This is a didactic linear trend fit (Price vs Time Index). For real forecasting, use proper time-series models.")
+st.caption("HW1 — Linear Regression demo with CRISP-DM process.")
